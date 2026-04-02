@@ -261,3 +261,8 @@ python main.py
 - WeChatDataAnalysis（微信 4.x 数据解密和导出）
 - Notion API
 - Windows 任务计划程序
+
+## 致谢
+
+- [WeChatDataAnalysis](https://github.com/LifeArchiveProject/WeChatDataAnalysis) — 微信 4.x 数据解密与导出工具，本项目的自动导出功能依赖其后端 API
+- [Claude Code](https://claude.ai/code) (Anthropic) — 项目代码由 Claude Opus 4.6 协助开发
