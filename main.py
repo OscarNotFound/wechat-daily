@@ -194,8 +194,43 @@ def run_daily(config: dict, target_date: datetime, test_mode: bool = False):
     except Exception as e:
         logger.warning(f"清理导出文件失败: {e}")
 
+    # 记录成功处理的日期
+    _mark_completed(date_str)
+
     logger.info(f"✅ {date_str} 处理完成!")
     return True
+
+
+def _completed_dates_file() -> Path:
+    p = Path("logs/completed_dates.txt")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _mark_completed(date_str: str):
+    f = _completed_dates_file()
+    existing = set()
+    if f.exists():
+        existing = set(f.read_text(encoding="utf-8").strip().splitlines())
+    if date_str not in existing:
+        with open(f, "a", encoding="utf-8") as fp:
+            fp.write(date_str + "\n")
+
+
+def _get_missed_dates(catchup_days: int) -> list:
+    f = _completed_dates_file()
+    completed = set()
+    if f.exists():
+        completed = set(f.read_text(encoding="utf-8").strip().splitlines())
+
+    today = datetime.now().date()
+    missed = []
+    for i in range(catchup_days, 0, -1):
+        d = today - timedelta(days=i)
+        ds = d.strftime("%Y-%m-%d")
+        if ds not in completed:
+            missed.append(d)
+    return missed
 
 
 # ------------------------------------------------------------------
@@ -299,6 +334,18 @@ def main():
                 logger.error(f"{date.strftime('%Y-%m-%d')} 处理失败: {e}")
         logger.info(f"补跑完成: {success_count}/{args.backfill} 天成功")
         return
+
+    # 自动补跑漏掉的日期（仅在默认模式下，非 --date 指定时）
+    if not args.date:
+        catchup_days = config.get("processing", {}).get("auto_catchup_days", 7)
+        missed = _get_missed_dates(catchup_days)
+        if missed:
+            logger.info(f"检测到 {len(missed)} 天未处理，自动补跑...")
+            for d in missed:
+                try:
+                    run_daily(config, datetime.combine(d, datetime.min.time()), test_mode=args.test)
+                except Exception as e:
+                    logger.error(f"{d.strftime('%Y-%m-%d')} 补跑失败: {e}")
 
     # 单日模式
     try:

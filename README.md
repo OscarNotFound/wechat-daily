@@ -108,8 +108,27 @@ python auto_export.py --date 2026-04-01  # 仅导出指定日期
 右键 `install_scheduler.bat` → **以管理员身份运行**，创建每天 23:00 自动执行的 Windows 定时任务。
 
 需要确保定时触发时：
-- WeChatDataAnalysis 后端在运行（可设为开机自启）
-- 微信 PC 端保持登录
+- WeChatDataAnalysis 后端在运行（建议设为开机自启：`Win+R` → `shell:startup` → 把快捷方式拖进去）
+- 微信 PC 端保持登录（一般默认开机自启）
+
+定时任务注册在 Windows 任务计划程序中，**重启电脑后仍然有效**，无需重新安装。
+
+### 管理定时任务
+
+```bash
+schtasks /query /tn "WeChatDaily"              # 查看任务状态
+schtasks /run /tn "WeChatDaily"                # 手动触发一次
+schtasks /change /tn "WeChatDaily" /st 22:00   # 改为 22:00 执行
+schtasks /delete /tn "WeChatDaily" /f          # 删除任务（停止自动运行）
+```
+
+删除后如需重新启用，再运行一次 `install_scheduler.bat` 即可。
+
+### 自动补跑
+
+如果某天定时任务没跑成（电脑关机、微信没登录等），下次成功运行时会**自动检测并补跑**最近遗漏的日期，无需手动干预。
+
+通过 `config.yaml` 中的 `auto_catchup_days` 控制回溯范围（默认 7 天，设为 0 关闭）。
 
 ## 项目结构
 

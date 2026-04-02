@@ -57,6 +57,7 @@ processing:
     - "voip"
     - "emoji"
   min_messages_threshold: 3           # 消息少于此数的对话会被跳过
+  auto_catchup_days: 7                # 自动补跑最近 N 天内漏掉的日期（0 = 关闭）
 
 # ---------- 日志 ----------
 logging:
