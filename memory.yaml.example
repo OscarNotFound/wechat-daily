@@ -1,0 +1,32 @@
+# WeChat Daily - 用户画像 & 持久记忆
+# AI 每次运行后会自动更新，你也可以手动编辑修正
+# 首次使用时复制为 memory.yaml
+
+# 基本信息
+identity:
+  nickname: ""          # 和 config.yaml 中的 my_nickname 一致
+  # school: ""
+  # major: ""
+  # role: ""            # 学生/上班族/...
+
+# 常联系的人（AI 会自动补充）
+people: []
+  # - name: "张三"
+  #   relation: "同学"
+  #   context: "经常一起讨论作业"
+
+# 群聊备注（AI 会自动识别）
+groups: []
+  # - name: "XXX群"
+  #   context: "这是一个什么性质的群"
+
+# 周期性事件
+recurring: []
+  # - "每周四晚有例会"
+
+# 历史修正（AI 从错误中学习）
+corrections: []
+  # - "接龙报名已完成的不算待办任务"
+
+# AI 观察到的规律（自动更新）
+patterns: []

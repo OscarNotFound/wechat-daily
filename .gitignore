@@ -1,0 +1,32 @@
+# 配置文件（含 API Keys）
+config.yaml
+config_claudeapi.yaml
+
+# 用户记忆（含个人信息）
+memory.yaml
+
+# 导出数据
+export/
+
+# 日志
+logs/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# 备份文件
+*.bak
+*.bak2
+
+# 运行时生成
+run_daily.bat
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 工作目录
+wxdump_work/

@@ -1,0 +1,64 @@
+# ============================================
+# WeChat Daily - 配置文件
+# ============================================
+# 复制本文件为 config.yaml，然后填入你的 API Keys
+
+# ---------- AI 设置 ----------
+# 支持: deepseek / qwen / openai
+ai:
+  provider: "deepseek"
+  api_key: ""                         # 在 platform.deepseek.com 获取
+  model: "deepseek-chat"              # deepseek-chat (V3) 性价比最高
+  max_tokens: 4096
+  # base_url: ""                      # 留空则自动使用对应平台地址
+  #
+  # === 其他平台配置示例 ===
+  #
+  # 通义千问:
+  #   provider: "qwen"
+  #   api_key: "YOUR_QWEN_API_KEY"
+  #   model: "qwen-plus"
+  #
+  # OpenAI:
+  #   provider: "openai"
+  #   api_key: "YOUR_OPENAI_API_KEY"
+  #   model: "gpt-4o"
+
+# ---------- Notion API ----------
+notion:
+  api_key: ""                         # 在 notion.so/my-integrations 创建
+  daily_summary_db_id: ""             # 运行 --setup 后填入
+  todo_tasks_db_id: ""                # 运行 --setup 后填入
+
+# ---------- 微信数据 ----------
+wechat:
+  # WeChatDataAnalysis 后端 API 地址（用于自动导出）
+  tool_api_url: "http://127.0.0.1:10392"
+  # WeChatDataAnalysis 导出文件的目录
+  export_dir: "export"
+  # 你自己的微信昵称
+  my_nickname: ""
+  # 你的微信 wxid（可留空，自动识别）
+  my_wxid: ""
+  # 排除的群聊（不需要分析的群）
+  excluded_groups:
+    # - "某某通知群"
+    # - "快递取件群"
+  # 重要群聊（总结时优先展示）
+  important_groups:
+    # - "工作群"
+    # - "项目讨论"
+
+# ---------- 处理设置 ----------
+processing:
+  max_messages_per_chat: 200          # 每个对话最多取多少条消息
+  ignored_msg_types:                  # 跳过的消息类型
+    - "system"
+    - "voip"
+    - "emoji"
+  min_messages_threshold: 3           # 消息少于此数的对话会被跳过
+
+# ---------- 日志 ----------
+logging:
+  level: "INFO"
+  file: "logs/run.log"

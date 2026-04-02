@@ -1,0 +1,10 @@
+# WeChat Daily - Python 依赖
+
+# AI API（OpenAI 兼容格式，支持 DeepSeek / 通义千问 / OpenAI）
+openai>=1.0.0
+
+# Notion API & 自动导出 HTTP 请求
+requests>=2.31.0
+
+# 配置管理
+pyyaml>=6.0
