@@ -264,7 +264,9 @@ class NotionWriter:
                 }
             },
             "状态": {
-                "select": {"name": "📋 待处理"}
+                "select": {
+                    "name": "❓ 待确认" if task.get("confidence") == "medium" else "📋 待处理"
+                }
             },
             "创建日期": {
                 "date": {"start": date_str}

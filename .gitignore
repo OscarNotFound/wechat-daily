@@ -30,3 +30,6 @@ Thumbs.db
 
 # 工作目录
 wxdump_work/
+
+# 密钥缓存（含真实数据库密钥，绝不提交）
+data/

@@ -1,10 +1,11 @@
 """
 memory_manager.py - 用户画像 & 持久记忆管理
 
-负责：
-  1. 加载 memory.yaml 中的用户画像
-  2. 构建注入 prompt 的记忆文本
-  3. 将 AI 反思结果合并到 memory.yaml
+只保留对任务提取有直接帮助的信息：
+  - identity: 用户基本信息
+  - people: 人物关系（判断"谁的任务"）
+  - groups: 群聊性质（判断上下文）
+  - corrections: 提取规则修正（从错误中学习）
 """
 
 import logging
@@ -15,6 +16,10 @@ import yaml
 logger = logging.getLogger(__name__)
 
 MEMORY_FILE = Path(__file__).parent / "memory.yaml"
+
+MAX_PEOPLE = 30
+MAX_GROUPS = 15
+MAX_CORRECTIONS = 15
 
 
 class MemoryManager:
@@ -28,7 +33,9 @@ class MemoryManager:
         try:
             with open(self.path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
-            # 确保所有字段存在
+            # 迁移：删除旧字段
+            for old_key in ("patterns", "recurring"):
+                data.pop(old_key, None)
             for key, default in self._default().items():
                 data.setdefault(key, default)
             return data
@@ -42,12 +49,15 @@ class MemoryManager:
             "identity": {},
             "people": [],
             "groups": [],
-            "recurring": [],
             "corrections": [],
-            "patterns": [],
         }
 
     def save(self):
+        # 保存前裁剪，防止无限膨胀
+        self.data["people"] = self.data["people"][:MAX_PEOPLE]
+        self.data["groups"] = self.data["groups"][:MAX_GROUPS]
+        self.data["corrections"] = self.data["corrections"][:MAX_CORRECTIONS]
+
         with open(self.path, "w", encoding="utf-8") as f:
             yaml.dump(
                 self.data, f,
@@ -79,46 +89,41 @@ class MemoryManager:
         if people:
             lines = []
             for p in people:
+                if not p.get("name") or p["name"].startswith("wxid_"):
+                    continue
                 line = f"- {p['name']}"
                 if p.get("relation"):
                     line += f"（{p['relation']}）"
                 if p.get("context"):
                     line += f"：{p['context']}"
                 lines.append(line)
-            parts.append("【常联系的人】\n" + "\n".join(lines))
+            if lines:
+                parts.append("【常联系的人】\n" + "\n".join(lines))
 
         groups = self.data.get("groups", [])
         if groups:
-            lines = [f"- {g['name']}：{g.get('context', '')}" for g in groups]
-            parts.append("【群聊备注】\n" + "\n".join(lines))
-
-        recurring = self.data.get("recurring", [])
-        if recurring:
-            lines = [f"- {r}" for r in recurring]
-            parts.append("【周期性事件】\n" + "\n".join(lines))
+            lines = [f"- {g['name']}：{g.get('context', '')}" for g in groups if g.get("name")]
+            if lines:
+                parts.append("【群聊备注】\n" + "\n".join(lines))
 
         corrections = self.data.get("corrections", [])
         if corrections:
             lines = [f"- {c}" for c in corrections]
-            parts.append("【注意事项（历史修正）】\n" + "\n".join(lines))
-
-        patterns = self.data.get("patterns", [])
-        if patterns:
-            lines = [f"- {p}" for p in patterns]
-            parts.append("【行为规律】\n" + "\n".join(lines))
+            parts.append("【任务提取规则修正】\n" + "\n".join(lines))
 
         return "\n\n".join(parts) if parts else "（暂无历史记忆）"
 
     def merge_reflection(self, reflection: dict):
         """将 AI 反思结果合并到记忆中"""
-        added = {"people": 0, "groups": 0, "recurring": 0, "patterns": 0, "corrections": 0}
+        added = {"people": 0, "groups": 0, "corrections": 0}
 
-        # 合并人物
+        # 合并人物（跳过 wxid_ 开头的）
         existing_names = {p["name"] for p in self.data.get("people", [])}
         for person in reflection.get("people", []):
-            if person.get("name") and person["name"] not in existing_names:
+            name = person.get("name", "")
+            if name and name not in existing_names and not name.startswith("wxid_"):
                 self.data["people"].append(person)
-                existing_names.add(person["name"])
+                existing_names.add(name)
                 added["people"] += 1
 
         # 合并群聊
@@ -129,14 +134,13 @@ class MemoryManager:
                 existing_groups.add(group["name"])
                 added["groups"] += 1
 
-        # 合并去重的字符串列表
-        for key in ("recurring", "patterns", "corrections"):
-            existing = set(self.data.get(key, []))
-            for item in reflection.get(key, []):
-                if item and item not in existing:
-                    self.data[key].append(item)
-                    existing.add(item)
-                    added[key] += 1
+        # 合并修正规则
+        existing_corrections = set(self.data.get("corrections", []))
+        for item in reflection.get("corrections", []):
+            if item and item not in existing_corrections:
+                self.data["corrections"].append(item)
+                existing_corrections.add(item)
+                added["corrections"] += 1
 
         total = sum(added.values())
         if total > 0:

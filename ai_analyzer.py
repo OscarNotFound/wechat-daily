@@ -189,14 +189,22 @@ class AIAnalyzer:
                 task.setdefault("deadline", None)
                 task.setdefault("deadline_text", "")
                 task.setdefault("priority", "medium")
+                task.setdefault("confidence", "medium")
                 task.setdefault("source_chat", "")
                 task.setdefault("source_message", "")
                 task.setdefault("category", "other")
 
                 if task["priority"] not in ("high", "medium", "low"):
                     task["priority"] = "medium"
+                if task["confidence"] not in ("high", "medium", "low"):
+                    task["confidence"] = "medium"
                 if task["category"] not in ("work", "life", "social", "other"):
                     task["category"] = "other"
+
+                # 丢弃低置信度任务
+                if task["confidence"] == "low":
+                    logger.info(f"  跳过低置信度任务: {task['title']}")
+                    continue
 
                 valid_tasks.append(task)
 

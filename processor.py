@@ -33,6 +33,38 @@ SYSTEM_PATTERNS = [
 
 SYSTEM_RE = re.compile("|".join(SYSTEM_PATTERNS), re.DOTALL)
 
+# 任务信号关键词（规则层，辅助 LLM）
+TASK_SIGNAL_PATTERNS = [
+    # 指派类
+    r"(你|帮我|麻烦).{0,10}(一下|搞|弄|做|写|发|交|提交|整理|准备|确认|回复)",
+    # 承诺类
+    r"(我来|我去|我负责|包在我|我搞定|我处理|我明天|我晚点|我回头)",
+    # 时间信号
+    r"(截止|deadline|ddl|最晚|之前|前完成)",
+    r"(明天|后天|下周|这周|周[一二三四五六日天]|月底|\d+[月号日])",
+    # 提醒类
+    r"(记得|别忘了|千万别忘|提醒一下|不要忘了)",
+    # @某人
+    r"@\S+",
+]
+TASK_SIGNAL_RE = re.compile("|".join(TASK_SIGNAL_PATTERNS), re.IGNORECASE)
+
+# 已完成信号
+DONE_SIGNAL_PATTERNS = [
+    r"(搞定了|弄好了|做完了|交了|发了|提交了|完成了|OK了|ok了|好了已经)",
+    r"(已经|已).{0,6}(发|交|做|弄|搞|提交|完成|报名|回复|接龙)",
+]
+DONE_SIGNAL_RE = re.compile("|".join(DONE_SIGNAL_PATTERNS))
+
+# 第一人称替换：把他人消息中的"我"替换为发送者名，消除视角混淆
+# 只替换句中独立出现的"我"，不替换"我们"
+_FIRST_PERSON_RE = re.compile(r"(?<![我们])我(?!们)")
+
+
+def _replace_first_person(content: str, sender_name: str) -> str:
+    """把消息中的第一人称"我"替换为发送者姓名，避免 AI 视角混淆。"""
+    return _FIRST_PERSON_RE.sub(sender_name, content)
+
 
 class MessageProcessor:
     """消息清洗与处理器"""
@@ -243,14 +275,31 @@ class MessageProcessor:
 
             for msg in chat["messages"]:
                 time_short = msg["time"].split(" ")[-1][:5] if " " in msg["time"] else ""
-                sender = msg["sender"]
+                sender = msg["sender"] or chat.get("chat_name", "对方")
                 content = msg["content"].replace("\n", " ").strip()
 
                 # 截断过长的单条消息
                 if len(content) > 300:
                     content = content[:300] + "..."
 
-                lines.append(f"[{time_short}] {sender}: {content}")
+                # 规则层标注：给含任务信号的消息加标记
+                tags = []
+                if TASK_SIGNAL_RE.search(content):
+                    tags.append("⚡任务信号")
+                if DONE_SIGNAL_RE.search(content):
+                    tags.append("✅已完成")
+                if sender == self.my_nickname:
+                    tag_prefix = "[我]"
+                else:
+                    tag_prefix = ""
+                    # 他人消息：把句中第一人称"我"替换为发送者姓名，避免 AI 视角混淆
+                    content = _replace_first_person(content, sender)
+
+                tag_str = " ".join(tags)
+                if tag_str:
+                    tag_str = f" ({tag_str})"
+
+                lines.append(f"[{time_short}] {tag_prefix}{sender}: {content}{tag_str}")
 
             lines.append("")
 

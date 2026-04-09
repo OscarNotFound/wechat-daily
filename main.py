@@ -30,6 +30,7 @@ from processor import MessageProcessor
 from ai_analyzer import AIAnalyzer, AIAnalyzerMock
 from notion_writer import NotionWriter
 from memory_manager import MemoryManager
+from wechat_core import DirectReadPipeline
 
 # ------------------------------------------------------------------
 # 日志配置
@@ -79,31 +80,50 @@ def run_daily(config: dict, target_date: datetime, test_mode: bool = False):
     logger.info(f"开始处理 {date_str} 的聊天记录")
     logger.info("=" * 60)
 
-    # 步骤 0: 自动导出当天聊天记录
+    # 步骤 0+1: 获取聊天记录（优先直接读取数据库，失败则回退到 API 导出）
     wechat_cfg = config.get("wechat", {})
-    api_url = wechat_cfg.get("tool_api_url", "")
-    if api_url:
-        logger.info("[0/5] 自动导出聊天记录...")
-        try:
-            exporter = AutoExporter(api_url, wechat_cfg.get("export_dir", "export"))
-            exporter.export_date(target_date)
-        except ConnectionError:
-            logger.warning("WeChatDataAnalysis 后端未运行，跳过自动导出，使用已有导出数据")
-        except Exception as e:
-            logger.warning(f"自动导出失败: {e}，尝试使用已有导出数据")
-    else:
-        logger.info("未配置 tool_api_url，跳过自动导出")
+    raw_data = None
+    pipeline = None
 
-    # 步骤 1: 提取聊天记录
-    logger.info("[1/5] 提取微信聊天记录...")
-    extractor = WeChatExtractor(config)
+    # 方式 A: 直接读取微信数据库（无需 WeChatDataAnalysis）
+    logger.info("[1/5] 尝试直接读取微信数据库...")
     try:
-        raw_data = extractor.extract_auto(target_date)
+        pipeline = DirectReadPipeline(config)
+        raw_data = pipeline.read_date(target_date)
+        if raw_data.get("chats"):
+            logger.info(f"直接读取成功: {len(raw_data['chats'])} 个对话")
+        else:
+            raw_data = None
+            logger.info("直接读取未获取到消息，尝试 API 导出方式")
     except Exception as e:
-        logger.error(f"提取失败: {e}")
-        return False
+        logger.info(f"直接读取不可用 ({e})，尝试 API 导出方式")
+        raw_data = None
+    finally:
+        if pipeline:
+            pipeline.cleanup()
 
-    if not raw_data.get("chats"):
+    # 方式 B: 通过 WeChatDataAnalysis API 导出
+    if not raw_data or not raw_data.get("chats"):
+        api_url = wechat_cfg.get("tool_api_url", "")
+        if api_url:
+            logger.info("[1/5] 通过 API 自动导出聊天记录...")
+            try:
+                exporter = AutoExporter(api_url, wechat_cfg.get("export_dir", "export"))
+                exporter.export_date(target_date)
+            except ConnectionError:
+                logger.warning("WeChatDataAnalysis 后端未运行，跳过自动导出")
+            except Exception as e:
+                logger.warning(f"自动导出失败: {e}")
+
+        logger.info("[1/5] 从导出文件提取聊天记录...")
+        extractor = WeChatExtractor(config)
+        try:
+            raw_data = extractor.extract_auto(target_date)
+        except Exception as e:
+            logger.error(f"提取失败: {e}")
+            return False
+
+    if not raw_data or not raw_data.get("chats"):
         logger.warning(f"{date_str} 没有找到聊天记录，跳过")
         return False
 
