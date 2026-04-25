@@ -12,17 +12,26 @@ echo =============================================
 echo.
 
 set PROJECT_DIR=%~dp0
-set PYTHON_PATH=python
 
-%PYTHON_PATH% --version >nul 2>&1
+REM Use venv Python if available, otherwise fall back to system Python
+set VENV_PYTHON=%PROJECT_DIR%venv\python.exe
+if exist "%VENV_PYTHON%" (
+    set PYTHON_PATH=%VENV_PYTHON%
+    echo Python: venv ^(%VENV_PYTHON%^)
+) else (
+    set PYTHON_PATH=python
+    echo Python: system python
+)
+
+"%PYTHON_PATH%" --version >nul 2>&1
 if errorlevel 1 (
-    echo [Error] Python not found. Please install Python and add to PATH.
+    echo [Error] Python not found.
+    echo Please install Python or create a venv at %PROJECT_DIR%venv\
     pause
     exit /b 1
 )
 
 echo Project dir: %PROJECT_DIR%
-echo Python: %PYTHON_PATH%
 echo.
 
 echo Creating run script...
@@ -30,9 +39,9 @@ echo Creating run script...
 echo @echo off
 echo chcp 65001 ^>nul
 echo cd /d "%PROJECT_DIR%"
-echo echo [%%date%% %%time%%] Start WeChat Daily >> logs\scheduler.log
-echo %PYTHON_PATH% main.py >> logs\scheduler.log 2^>^&1
-echo echo [%%date%% %%time%%] Done >> logs\scheduler.log
+echo echo [%%date%% %%time%%] Start WeChat Daily ^>^> logs\scheduler.log
+echo "%PYTHON_PATH%" main.py ^>^> logs\scheduler.log 2^>^&1
+echo echo [%%date%% %%time%%] Done ^>^> logs\scheduler.log
 ) > "%PROJECT_DIR%run_daily.bat"
 
 echo Run script created: %PROJECT_DIR%run_daily.bat
